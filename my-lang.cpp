@@ -1,5 +1,8 @@
 #include <string>
 #include <iostream>
+#include <memory>
+#include <vector>
+
 
 enum Token{
     tok_eof = -1,
@@ -42,7 +45,7 @@ static int gettok() {
         return tok_nunmber;
     }
 
-    if(lastChar == '#'){
+    if(lastChar == '#'){ //if its a comment, then skip the line
         do{
             lastChar = getchar();
         }while(lastChar != EOF && lastChar != '\n' && lastChar != '\r');
@@ -57,9 +60,85 @@ static int gettok() {
     return thisChar; //returns the ASCII value of the charater(special). Like 124 for '|'
 }
 
-int main(){
-    while(true){
-        int tok = gettok();
-        std :: cout << "got token = " << tok << std :: endl;
-    }
-}
+//Absract Sysntax Tree (aka Parser Tree) || AST
+
+namespace{
+    //ExpAST - Base class for all expression nodes.
+    class ExprAST {
+        public:
+        virtual ~ExprAST() = default;
+    };
+
+    // NumberExprAST - Expression class for numeric literals like "1.0".
+    class NumberExprAST : public ExprAST {
+        double Val;
+
+        public:
+        NumberExprAST (double value) : Val(value){};
+    };
+
+    // Expression class for referencing a variable like "a".
+    class VariableExprAST : public ExprAST {
+        std :: string Name;
+
+        public:
+        VariableExprAST(const std :: string &name) : Name(name) {} //const because we're not to modify the state of the object that called this method.
+    };
+
+    // BinaryExprAST - Expression class for binary operator like "x+y".
+    class BinaryExprAST : public ExprAST { 
+        char Op; //the operator
+        std :: unique_ptr<ExprAST> LHS, RHS;
+
+        public:
+        BinaryExprAST(char op, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs)
+            :Op(op), LHS(std :: move(lhs)), RHS(std :: move(rhs)) {}
+    };
+
+    //CallExprAST - Expression class for funtion calls.
+    class CallExprAST : ExprAST {
+        std :: string Callee;
+        std :: vector<std :: unique_ptr<ExprAST>> Args;
+        
+        public:
+        CallExprAST(const std :: string &callee, std :: vector<std :: unique_ptr<ExprAST>> args)
+            : Callee(callee), Args(std :: move(args)) {} 
+
+    };
+
+    // PrototypeAST - This class represnts the "prototype" for a function,
+    // which captures its name, and its argument names (thus implicitly the number of arguments the function accepts)
+    class PrototypeAST : public ExprAST {
+        std :: string Name;
+        std :: vector<std :: string> Args;
+
+        public:
+        PrototypeAST(const std::string &name, std::vector<std::string> args)
+            : Name(name), Args(std::move(args)) {}
+
+        const std::string &getName() const {  //& before getName implies the method returns a reference of the object.  
+            return Name; //const after the getName indicates that the member function does not modify the state of the object on which it is called.
+            // const member variables can only call const member functions, but not the other way round i.e const member function can be called by both const and non-const member variables
+        }
+    };
+
+    // FunctionAST - This class represents a function definition itself.
+    class FunctionAST : public ExprAST {
+        std::unique_ptr<PrototypeAST> Proto;
+        std::unique_ptr<ExprAST> Body;
+
+        public:
+        FunctionAST(std::unique_ptr<PrototypeAST> proto, std::unique_ptr<ExprAST> body)
+            :Proto(std::move(proto)), Body(std::move(body)) {}
+    };
+} //end of anonymous namespace
+
+// PARSER
+
+
+// int main(){
+//     while(true){
+//         int tok = gettok();
+//         std :: cout << "got token = " << tok << std :: endl;
+//     }
+// }
