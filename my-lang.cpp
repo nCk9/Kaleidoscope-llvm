@@ -96,7 +96,7 @@ namespace{
     };
 
     //CallExprAST - Expression class for function calls.
-    class CallExprAST : ExprAST {
+    class CallExprAST : public ExprAST {
         std :: string Callee;
         std :: vector<std :: unique_ptr<ExprAST>> Args;
         
@@ -223,7 +223,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
 
     // Eat the ')'
     getNextToken();
-    return std::make_unique<CallExprAST>(IdName, std::move(Args))
+    return std::make_unique<CallExprAST>(IdName, std::move(Args));
 }
 
 // primary 
@@ -268,7 +268,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, std::unique_ptr<Expr
         // if BinOp binds less tightly with RHS than then operator after RHS, let
         // let the pending operator take RHS as its LHS.
         int NextPrec = GetTokPecedence();
-        if(TokenPrec < NextPrec) {
+        if(TokPrec < NextPrec) {
             RHS = ParseBinOpRHS(TokPrec + 1, std::move(RHS));
             if(!RHS)
                 return nullptr;
@@ -326,11 +326,11 @@ static std::unique_ptr<FunctionAST> ParseDefinition(){
 }
 
 // toplevelexpr ::= expression
-static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
+static std::unique_ptr<FunctionAST> ParseTopLevelExpr() { //top level expression is like a+b, a+b*c-d etc.
     if(auto E = ParseExpression()) {
         // Make an anonumous proto.
-        auto Proto = std::make_unique<PrototypeAST>("__anon_expr", std::vector<std::string>());
-
+        auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
+        // PrototypeAST and FunctionAST is used for fucntions, here, we're treating a normal expression as a function with no name
         return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
     }
     return nullptr;
@@ -354,28 +354,27 @@ static void HandleDefinition(){
 }
 
 static void HandleExtern() {
-    if(ParseExtern()){
+    if(ParseExtern())
         fprintf(stderr, "Parsed an extern.\n");
     else
         // skip the token for error recovery.
         getNextToken();
-    }
 }
 
 static void HandleTopLevelExpression() {
     // Evaluate a top-level expression into an anonymous function.
-    if(ParseTopLevelExpr()){
+    if(ParseTopLevelExpr())
         fprintf(stderr, "Parsed a top-level expr.\n");
     else
         // skip token for error recovery.
         getNextToken();
-    }
 }
 
 // top ::=definition |eternal |expression| ';'
 static void MainLoop(){
     while(true) {
-        frintf(stderr, "ready> ");
+        fprintf(stderr, "ready11-> \n");
+        // std::cout << CurrTok << "\n";
         switch(CurrTok) {
             case tok_eof:
                 return;
@@ -383,12 +382,15 @@ static void MainLoop(){
                 getNextToken();
                 break;
             case tok_def:
+                std::cout << "Heading to HandleDefinition.\n";
                 HandleDefinition();
                 break;
             case tok_extern:
+                std::cout << "Heading to HandleExtern.\n";
                 HandleExtern();
                 break;
-            default:
+            default: //tok_identifier or '(' or some random special character
+                std::cout << "Heading to HandleTopLevelExpression.\n";
                 HandleTopLevelExpression();
                 break;
         }
@@ -408,6 +410,7 @@ int main() {
     // prime the first token.
     fprintf(stderr, "ready> ");
     getNextToken();
+    // std::cout <<"Returned token is: " << CurrTok << "\n";
 
     // Run the main "interpreter loop" now.
     MainLoop();
